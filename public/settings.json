@@ -1,0 +1,61 @@
+{
+  "hotkeys": {
+    "labelRotation": "Enter",
+    "labelKeyOne": "1",
+    "labelNameOne": "No vains",
+    "labelEnabledOne": true,
+    "labelKeyTwo": "2",
+    "labelNameTwo": "Stent",
+    "labelEnabledTwo": true,
+    "labelKeyThree": "3",
+    "labelNameThree": "Coil",
+    "labelEnabledThree": true,
+    "labelKeyFour": "4",
+    "labelNameFour": "Flow Diverter",
+    "labelEnabledFour": true,
+    "labelKeyFive": "5",
+    "labelNameFive": "Dental Artifacts",
+    "labelEnabledFive": true,
+    "labelKeySix": "6",
+    "labelNameSix": "Label name 6",
+    "labelEnabledSix": false,
+    "labelKeySeven": "7",
+    "labelNameSeven": "Label name 7",
+    "labelEnabledSeven": false
+  },
+  "paths": {
+    "imagePath": "/images/",
+    "metadataPath": "/mock_metadata.csv"
+  },
+  "layout": {
+    "imagesPerColumn": 14,
+    "galleryTitle": "Image Gallery",
+    "selectedColorMainBackground": "bg-white",
+    "selectedColorHeaderBackground": "bg-white",
+    "selectedColorFooterBackground": "bg-white"
+  },
+  "metadata": {
+    "columns": [
+      {
+        "name": "filename",
+        "enabled": true
+      },
+      {
+        "name": "label",
+        "enabled": true
+      },
+      {
+        "name": "gender",
+        "enabled": false
+      },
+      {
+        "name": "age",
+        "enabled": true
+      },
+      {
+        "name": "description",
+        "enabled": true
+      }
+    ]
+  }
+}
