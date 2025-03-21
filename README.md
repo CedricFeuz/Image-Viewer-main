@@ -46,7 +46,7 @@ cd votre-projet
    
 ```bash
 yarn install
-yarn add react react-dom
+yarn add react
 ```
 
 ## 2. 🧩 Usage Guide
