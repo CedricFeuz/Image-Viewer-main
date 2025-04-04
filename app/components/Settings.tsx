@@ -23,8 +23,17 @@ interface SettingsData {
     labelNameSix: string;
     labelEnabledSix: boolean;
     labelKeySeven: string;
+    labelKeyEight: string;
+    labelKeyNine: string;
+    labelKeyTen: string;
     labelNameSeven: string;
+    labelNameEight: string;
+    labelNameNine: string;
+    labelNameTen: string;
     labelEnabledSeven: boolean;
+    labelEnabledEight: boolean;
+    labelEnabledNine: boolean;
+    labelEnabledTen: boolean;
   };
   paths: {
     imagePath: string;
@@ -78,6 +87,15 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const [keyLabelSeven, setKeyLabelSeven] = useState<string>("7");
   const [nameLabelSeven, setNameLabelSeven] = useState<string>("Label name 7");
   const [isEnabledSeven, setIsEnabledSeven] = useState(false);
+  const [keyLabelEight, setKeyLabelEight] = useState<string>("8");
+  const [nameLabelEight, setNameLabelEight] = useState<string>("Label name 8");
+  const [isEnabledEight, setIsEnabledEight] = useState(false);
+  const [keyLabelNine, setKeyLabelNine] = useState<string>("9");
+  const [nameLabelNine, setNameLabelNine] = useState<string>("Label name 9");
+  const [isEnabledNine, setIsEnabledNine] = useState(false);
+  const [keyLabelTen, setKeyLabelTen] = useState<string>("10");
+  const [nameLabelTen, setNameLabelTen] = useState<string>("Label name 10");
+  const [isEnabledTen, setIsEnabledTen] = useState(false);
   
   // State variables for paths
   const [inputImage, setInputImage] = useState<string>("/images/");
@@ -120,6 +138,12 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const nameLabelSixInputRef = useRef<HTMLInputElement>(null);
   const keyLabelSevenInputRef = useRef<HTMLInputElement>(null);
   const nameLabelSevenInputRef = useRef<HTMLInputElement>(null);
+  const keyLabelEightInputRef = useRef<HTMLInputElement>(null);
+  const nameLabelEightInputRef = useRef<HTMLInputElement>(null);
+  const keyLabelNineInputRef = useRef<HTMLInputElement>(null);
+  const nameLabelNineInputRef = useRef<HTMLInputElement>(null);
+  const keyLabelTenInputRef = useRef<HTMLInputElement>(null);
+  const nameLabelTenInputRef = useRef<HTMLInputElement>(null);
   
   // Load saved settings on component mount
   useEffect(() => {
@@ -151,6 +175,15 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         setKeyLabelSeven(parsedSettings.hotkeys?.labelKeySeven || "7");
         setNameLabelSeven(parsedSettings.hotkeys?.labelNameSeven || "Label name 7");
         setIsEnabledSeven(parsedSettings.hotkeys?.labelEnabledSeven || false);
+        setKeyLabelEight(parsedSettings.hotkeys?.labelKeyEight || "8");
+        setNameLabelEight(parsedSettings.hotkeys?.labelNameEight || "Label name 8");
+        setIsEnabledEight(parsedSettings.hotkeys?.labelEnabledEight || false);
+        setKeyLabelNine(parsedSettings.hotkeys?.labelKeyNine || "9");
+        setNameLabelNine(parsedSettings.hotkeys?.labelNameNine || "Label name 9");
+        setIsEnabledNine(parsedSettings.hotkeys?.labelEnabledNine || false);
+        setKeyLabelTen(parsedSettings.hotkeys?.labelKeyTen || "t");
+        setNameLabelTen(parsedSettings.hotkeys?.labelNameTen || "Label name 10");
+        setIsEnabledTen(parsedSettings.hotkeys?.labelEnabledTen || false);
         
         // Load paths settings
         setInputImage(parsedSettings.paths?.imagePath || "/images/");
@@ -331,6 +364,43 @@ export default function Settings({ onClose }: { onClose: () => void }) {
 
   const toggleSwitchSeven = () => {
     setIsEnabledSeven(!isEnabledSeven);
+  };
+
+  const handleKeyLabelEightDown = (e: React.KeyboardEvent) => {
+    e.preventDefault();
+    setKeyLabelEight(e.key);
+  };
+
+  const handleNameLabelEightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNameLabelEight(e.target.value);
+  };
+
+  const toggleSwitchEight = () => {
+    setIsEnabledEight(!isEnabledEight);
+  };
+  const handleKeyLabelNineDown = (e: React.KeyboardEvent) => {
+    e.preventDefault();
+    setKeyLabelNine(e.key);
+  };
+
+  const handleNameLabelNineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNameLabelNine(e.target.value);
+  };
+
+  const toggleSwitchNine = () => {
+    setIsEnabledNine(!isEnabledNine);
+  };
+  const handleKeyLabelTenDown = (e: React.KeyboardEvent) => {
+    e.preventDefault();
+    setKeyLabelTen(e.key);
+  };
+
+  const handleNameLabelTenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNameLabelTen(e.target.value);
+  };
+
+  const toggleSwitchTen = () => {
+    setIsEnabledTen(!isEnabledTen);
   };
 
   // Toggle metadata column visibility
@@ -734,6 +804,12 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     if (!nameLabelSix) newErrors.emptyFields.push("Name Label 6");
     if (!keyLabelSeven) newErrors.emptyFields.push("Key Label 7");
     if (!nameLabelSeven) newErrors.emptyFields.push("Name Label 7");
+    if (!keyLabelEight) newErrors.emptyFields.push("Key Label 8");
+    if (!nameLabelEight) newErrors.emptyFields.push("Name Label 8");
+    if (!keyLabelNine) newErrors.emptyFields.push("Key Label 9");
+    if (!nameLabelNine) newErrors.emptyFields.push("Name Label 9");
+    if (!keyLabelTen) newErrors.emptyFields.push("Key Label 10");
+    if (!nameLabelTen) newErrors.emptyFields.push("Name Label 10");
     if (!inputImage) newErrors.emptyFields.push("Image Path");
     if (!metaData) newErrors.emptyFields.push("Metadata Path");
     if (!galleryTitle) newErrors.emptyFields.push("Gallery Title");
@@ -747,6 +823,9 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     if (nameLabelFive.length > 20) newErrors.tooLongFields.push("Name Label 5");
     if (nameLabelSix.length > 20) newErrors.tooLongFields.push("Name Label 6");
     if (nameLabelSeven.length > 20) newErrors.tooLongFields.push("Name Label 7");
+    if (nameLabelEight.length > 20) newErrors.tooLongFields.push("Name Label 8");
+    if (nameLabelNine.length > 20) newErrors.tooLongFields.push("Name Label 9");
+    if (nameLabelTen.length > 20) newErrors.tooLongFields.push("Name Label 10");
     if (inputImage.length > 50) newErrors.tooLongFields.push("Image Path");
     if (metaData.length > 50) newErrors.tooLongFields.push("Metadata Path");
     if (galleryTitle.length > 30) newErrors.tooLongFields.push("Gallery Title");
@@ -828,6 +907,15 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         labelKeySeven: keyLabelSeven,
         labelNameSeven: nameLabelSeven,
         labelEnabledSeven: isEnabledSeven,
+        labelKeyEight: keyLabelEight,
+        labelNameEight: nameLabelEight,
+        labelEnabledEight: isEnabledEight,
+        labelKeyNine: keyLabelNine,
+        labelNameNine: nameLabelNine,
+        labelEnabledNine: isEnabledNine,
+        labelKeyTen: keyLabelTen,
+        labelNameTen: nameLabelTen,
+        labelEnabledTen: isEnabledTen,
       },
       paths: {
         imagePath: inputImage,
@@ -1325,7 +1413,6 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                   </button> 
                 </div> 
               </div> 
-
               {/* Label Seven */} 
               <div className="grid grid-cols-12 items-center gap-2"> 
                 <div className="col-span-2"> 
@@ -1338,7 +1425,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                     onClick={() => keyLabelSevenInputRef.current?.focus()} 
                   > 
                     <input 
-                      ref={keyLabelSevenInputRef} 
+                      ref={keyLabelSevenInputRef}       
                       type="text" 
                       className="w-full outline-none text-center font-mono" 
                       value={keyLabelSeven} 
@@ -1383,6 +1470,178 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                   </button> 
                 </div> 
               </div> 
+              {/* Label Eight */} 
+              <div className="grid grid-cols-12 items-center gap-2"> 
+                <div className="col-span-2"> 
+                  <span className="text-sm font-semibold text-slate-600">Label 8</span> 
+                </div> 
+                <div className="col-span-2 flex items-center"> 
+                  <span className="text-sm text-slate-600 mr-2">Key:</span> 
+                  <div  
+                    className={`border rounded p-1 bg-gray-50 cursor-text w-full flex items-center ${!keyLabelEight ? 'border-red-500' : 'border-slate-300'}`} 
+                    onClick={() => keyLabelEightInputRef.current?.focus()} 
+                  > 
+                    <input 
+                      ref={keyLabelEightInputRef}       
+                      type="text" 
+                      className="w-full outline-none text-center font-mono" 
+                      value={keyLabelEight} 
+                      onKeyDown={handleKeyLabelEightDown} 
+                      readOnly 
+                    /> 
+                  </div> 
+                </div> 
+                <div className="col-span-1 flex justify-end"> 
+                  <span className="text-sm text-slate-600">Name:</span> 
+                </div> 
+                <div className="col-span-5"> 
+                  <div  
+                    className={`border rounded p-1 bg-gray-50 cursor-text w-full flex items-center ${ 
+                      !nameLabelEight ? 'border-red-500' :  
+                      nameLabelEight.length > 20 ? 'border-yellow-500' : 'border-slate-300' 
+                    }`} 
+                  > 
+                    <input 
+                      ref={nameLabelEightInputRef} 
+                      type="text" 
+                      className="w-full outline-none px-2" 
+                      value={nameLabelEight} 
+                      onChange={handleNameLabelEightChange} 
+                    /> 
+                  </div> 
+                </div> 
+                <div className="col-span-2 flex justify-end"> 
+                  <button  
+                    type="button"  
+                    onClick={toggleSwitchEight} 
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 ${ 
+                      isEnabledEight ? 'bg-blue-600' : 'bg-gray-200' 
+                    }`} 
+                  > 
+                    <span className="sr-only">Toggle Label</span> 
+                    <span 
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${ 
+                        isEnabledEight ? 'translate-x-6' : 'translate-x-1' 
+                      }`} 
+                    /> 
+                  </button> 
+                </div> 
+              </div> 
+              {/* Label Nine */} 
+              <div className="grid grid-cols-12 items-center gap-2"> 
+                <div className="col-span-2"> 
+                  <span className="text-sm font-semibold text-slate-600">Label 9</span> 
+                </div> 
+                <div className="col-span-2 flex items-center"> 
+                  <span className="text-sm text-slate-600 mr-2">Key:</span> 
+                  <div  
+                    className={`border rounded p-1 bg-gray-50 cursor-text w-full flex items-center ${!keyLabelNine ? 'border-red-500' : 'border-slate-300'}`} 
+                    onClick={() => keyLabelNineInputRef.current?.focus()} 
+                  > 
+                    <input 
+                      ref={keyLabelNineInputRef}       
+                      type="text" 
+                      className="w-full outline-none text-center font-mono" 
+                      value={keyLabelNine} 
+                      onKeyDown={handleKeyLabelNineDown} 
+                      readOnly 
+                    /> 
+                  </div> 
+                </div> 
+                <div className="col-span-1 flex justify-end"> 
+                  <span className="text-sm text-slate-600">Name:</span> 
+                </div> 
+                <div className="col-span-5"> 
+                  <div  
+                    className={`border rounded p-1 bg-gray-50 cursor-text w-full flex items-center ${ 
+                      !nameLabelNine ? 'border-red-500' :  
+                      nameLabelNine.length > 20 ? 'border-yellow-500' : 'border-slate-300' 
+                    }`} 
+                  > 
+                    <input 
+                      ref={nameLabelNineInputRef} 
+                      type="text" 
+                      className="w-full outline-none px-2" 
+                      value={nameLabelNine} 
+                      onChange={handleNameLabelNineChange} 
+                    /> 
+                  </div> 
+                </div> 
+                <div className="col-span-2 flex justify-end"> 
+                  <button  
+                    type="button"  
+                    onClick={toggleSwitchNine} 
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 ${ 
+                      isEnabledNine ? 'bg-blue-600' : 'bg-gray-200' 
+                    }`} 
+                  > 
+                    <span className="sr-only">Toggle Label</span> 
+                    <span 
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${ 
+                        isEnabledNine ? 'translate-x-6' : 'translate-x-1' 
+                      }`} 
+                    /> 
+                  </button> 
+                </div> 
+              </div> 
+              {/* Label Ten */} 
+              <div className="grid grid-cols-12 items-center gap-2"> 
+                <div className="col-span-2"> 
+                  <span className="text-sm font-semibold text-slate-600">Label 10</span> 
+                </div> 
+                <div className="col-span-2 flex items-center"> 
+                  <span className="text-sm text-slate-600 mr-2">Key:</span> 
+                  <div  
+                    className={`border rounded p-1 bg-gray-50 cursor-text w-full flex items-center ${!keyLabelTen ? 'border-red-500' : 'border-slate-300'}`} 
+                    onClick={() => keyLabelTenInputRef.current?.focus()} 
+                  > 
+                    <input 
+                      ref={keyLabelTenInputRef}       
+                      type="text" 
+                      className="w-full outline-none text-center font-mono" 
+                      value={keyLabelTen} 
+                      onKeyDown={handleKeyLabelTenDown} 
+                      readOnly 
+                    /> 
+                  </div> 
+                </div> 
+                <div className="col-span-1 flex justify-end"> 
+                  <span className="text-sm text-slate-600">Name:</span> 
+                </div> 
+                <div className="col-span-5"> 
+                  <div  
+                    className={`border rounded p-1 bg-gray-50 cursor-text w-full flex items-center ${ 
+                      !nameLabelTen ? 'border-red-500' :  
+                      nameLabelTen.length > 20 ? 'border-yellow-500' : 'border-slate-300' 
+                    }`} 
+                  > 
+                    <input 
+                      ref={nameLabelTenInputRef} 
+                      type="text" 
+                      className="w-full outline-none px-2" 
+                      value={nameLabelTen} 
+                      onChange={handleNameLabelTenChange} 
+                    /> 
+                  </div> 
+                </div> 
+                <div className="col-span-2 flex justify-end"> 
+                  <button  
+                    type="button"  
+                    onClick={toggleSwitchTen} 
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 ${ 
+                      isEnabledTen ? 'bg-blue-600' : 'bg-gray-200' 
+                    }`} 
+                  > 
+                    <span className="sr-only">Toggle Label</span> 
+                    <span 
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${ 
+                        isEnabledTen ? 'translate-x-6' : 'translate-x-1' 
+                      }`} 
+                    /> 
+                  </button> 
+                </div> 
+              </div> 
+              
             </div> 
           </div>
            
