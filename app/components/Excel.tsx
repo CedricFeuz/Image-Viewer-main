@@ -34,6 +34,15 @@ interface SettingsData {
     labelKeySeven: string;
     labelNameSeven: string;
     labelEnabledSeven: boolean;
+    labelKeyEight: string;
+    labelNameEight: string;
+    labelEnabledEight: boolean;
+    labelKeyNine: string;
+    labelNameNine: string;
+    labelEnabledNine: boolean;
+    labelKeyTen: string;
+    labelNameTen: string;
+    labelEnabledTen: boolean;
   };
   paths: {
     imagePath: string;
@@ -120,6 +129,15 @@ export default function ImageGallery() {
       labelKeySeven: "7",
       labelNameSeven: "Label name 7",
       labelEnabledSeven: false,
+      labelKeyEight: "8",
+      labelNameEight: "Label name 8",
+      labelEnabledEight: false,
+      labelKeyNine: "9",
+      labelNameNine: "Label name 9",
+      labelEnabledNine: false,
+      labelKeyTen: "10",
+      labelNameTen: "Label name 10",
+      labelEnabledTen: false,
     },
     paths: {
       imagePath: "/images/",
@@ -228,6 +246,30 @@ export default function ImageGallery() {
         name: settings.hotkeys.labelNameSeven,
         enabled: settings.hotkeys.labelEnabledSeven,
         color: "#FF6600" // orange
+      });
+    }
+    if (settings.hotkeys.labelEnabledEight) {
+      labels.push({
+        key: settings.hotkeys.labelKeyEight,
+        name: settings.hotkeys.labelNameEight,
+        enabled: settings.hotkeys.labelEnabledEight,
+        color: "#F43F5E" // orange
+      });
+    }
+    if (settings.hotkeys.labelEnabledNine) {
+      labels.push({
+        key: settings.hotkeys.labelKeyNine,
+        name: settings.hotkeys.labelNameNine,
+        enabled: settings.hotkeys.labelEnabledNine,
+        color: "#84CC16" // orange
+      });
+    }
+    if (settings.hotkeys.labelEnabledTen) {
+      labels.push({
+        key: settings.hotkeys.labelKeyTen,
+        name: settings.hotkeys.labelNameTen,
+        enabled: settings.hotkeys.labelEnabledTen,
+        color: "##6366F1" // orange
       });
     }
     return labels;
@@ -670,21 +712,41 @@ export default function ImageGallery() {
     });
   }, [selectedImagesForPage.length, settings.layout?.imagesPerColumn]);
 
+  const getCurrentSelectedFile = useCallback(() => {
+    const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
+    return currentItem ? currentItem.img : null;
+  }, [filteredImages, currentPage, currentImageIndex, itemsPerPage]);
   // Keyboard event handler for navigation and labeling
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (showSettings) return;
-      
+      if (showSettings) return; // Ignore keypresses if settings are open
+
       const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
+
+      // --- NEW: Copy Functionality ---
+      if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'c') {
+        event.preventDefault(); // Prevent default browser copy behavior
+        if (currentItem) {
+          const fileName = currentItem.img.fileName;
+          navigator.clipboard.writeText(fileName)
+            .then(() => {
+              console.log(`Filename copied to clipboard: ${fileName}`);
+              // Optional: Add visual feedback here (e.g., brief message)
+            })
+            .catch(err => {
+              console.error('Failed to copy filename: ', err);
+              showError('Failed to copy filename to clipboard.'); // Use existing error display
+            });
+        }
       
-      if (event.key === "ArrowLeft") {
-        if (event.ctrlKey || event.metaKey) { 
+    } else if (event.key === "ArrowLeft") {
+        if (event.ctrlKey || event.metaKey) {
           goToPreviousPage();
         } else {
           goToPreviousImage();
         }
       } else if (event.key === "ArrowRight") {
-        if (event.ctrlKey || event.metaKey) {  
+        if (event.ctrlKey || event.metaKey) {
           goToNextPage();
         } else {
           goToNextImage();
@@ -699,39 +761,40 @@ export default function ImageGallery() {
         if (currentItem) {
           cycleMarking(currentItem.idx);
         }
+      } else if (event.key === " ") { // Zoom toggle
+          event.preventDefault();
+          if (currentItem) {
+            setZoomedImage((prevZoom) =>
+              prevZoom === currentItem.img.fullPath ? null : currentItem.img.fullPath
+            );
+          }
       } else {
         // Check if the pressed key matches any of the enabled label keys
+        // This needs to be last to avoid conflicts with Ctrl+C etc.
         const labelValue = getKeyLabelValue(event.key);
         if (labelValue > 0) {
           updateMarkingForCurrentImage(labelValue);
-        }
-      } 
-      
-      if (event.key === " ") {
-        event.preventDefault();
-        if (currentItem) {
-          setZoomedImage((prevZoom) =>
-            prevZoom === currentItem.img.fullPath ? null : currentItem.img.fullPath
-          );
         }
       }
     },
     [
       showSettings,
+      filteredImages,
+      currentPage,
+      itemsPerPage,
+      currentImageIndex,
       goToPreviousImage,
       goToNextImage,
       goUpImage,
       goDownImage,
       cycleMarking,
-      currentPage,
-      currentImageIndex,
-      filteredImages,
       updateMarkingForCurrentImage,
       goToNextPage,
       goToPreviousPage,
-      itemsPerPage,
       settings.hotkeys,
-      getKeyLabelValue
+      getKeyLabelValue,
+      showError // Added showError dependency
+      // setZoomedImage is implicitly stable via useState
     ]
   );
 
