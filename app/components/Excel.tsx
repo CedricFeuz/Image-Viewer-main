@@ -13,11 +13,36 @@ import { FaCog } from 'react-icons/fa';
 interface SettingsData {
   hotkeys: {
     labelRotation: string;
-    labels: Array<{
-      acronym: string;
-      name: string;
-      enabled: boolean;
-    }>;
+    labelKeyOne: string;
+    labelNameOne: string;
+    labelEnabledOne: boolean;
+    labelKeyTwo: string;
+    labelNameTwo: string;
+    labelEnabledTwo: boolean;
+    labelKeyThree: string;
+    labelNameThree: string;
+    labelEnabledThree: boolean;
+    labelKeyFour: string;
+    labelNameFour: string;
+    labelEnabledFour: boolean;
+    labelKeyFive: string;
+    labelNameFive: string;
+    labelEnabledFive: boolean;
+    labelKeySix: string;
+    labelNameSix: string;
+    labelEnabledSix: boolean;
+    labelKeySeven: string;
+    labelNameSeven: string;
+    labelEnabledSeven: boolean;
+    labelKeyEight: string;
+    labelNameEight: string;
+    labelEnabledEight: boolean;
+    labelKeyNine: string;
+    labelNameNine: string;
+    labelEnabledNine: boolean;
+    labelKeyTen: string;
+    labelNameTen: string;
+    labelEnabledTen: boolean;
   };
   paths: {
     imagePath: string;
@@ -44,12 +69,12 @@ interface ImageItem {
   metadata: {
     [key: string]: string;
   };
-  label?: number;
-  labelName?: string;
+  label?: number;     // Wir behalten die Nummer für interne Verarbeitung
+  labelName?: string; // Wir fügen den Namen hinzu
 }
 
 interface LabelInfo {
-  acronym: string;
+  key: string;
   name: string;
   enabled: boolean;
   color: string;
@@ -58,25 +83,8 @@ interface LabelInfo {
 interface LabelMark {
   number: number;
   name: string;
-  acronym: string;
 }
 
-// Generate colors for 50 labels
-const generateLabelColors = (count: number): string[] => {
-  const colors = [
-    "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6",
-    "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1",
-    "#14B8A6", "#F43F5E", "#A855F7", "#0EA5E9", "#22C55E",
-    "#EAB308", "#DC2626", "#9333EA", "#0284C7", "#16A34A",
-    "#CA8A04", "#B91C1C", "#7C3AED", "#0369A1", "#15803D",
-    "#A16207", "#991B1B", "#6D28D9", "#075985", "#166534",
-    "#854D0E", "#7F1D1D", "#5B21B6", "#0C4A6E", "#14532D",
-    "#713F12", "#450A0A", "#4C1D95", "#082F49", "#052E16",
-    "#78350F", "#FCA5A5", "#FCD34D", "#6EE7B7", "#93C5FD",
-    "#C4B5FD", "#F9A8D4", "#67E8F9", "#BEF264", "#FDBA74"
-  ];
-  return colors.slice(0, count);
-};
 
 export default function ImageGallery() {
   const [imagePaths, setImagePaths] = useState<ImageItem[]>([]);
@@ -90,27 +98,46 @@ export default function ImageGallery() {
   const [showSettings, setShowSettings] = useState(false);
   const [csvData, setCsvData] = useState<{headers: string[], lines: string[]}>({ headers: [], lines: [] });
   const [hasLabelColumn, setHasLabelColumn] = useState(false);
+  // Neue States für Fehlerbehandlung
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingSaves, setPendingSaves] = useState(0);
   const [lastSaveSuccess, setLastSaveSuccess] = useState(true);
   const errorTimerRef = useRef<number | null>(null);
   
-  // New states for acronym typing
-  const [typingBuffer, setTypingBuffer] = useState<string>("");
-  const typingTimerRef = useRef<number | null>(null);
-  
-  // New state for label selection dropdown
-  const [showLabelDropdown, setShowLabelDropdown] = useState(false);
-  
   const [settings, setSettings] = useState<SettingsData>({
     hotkeys: {
       labelRotation: "Enter",
-      labels: Array.from({ length: 50 }, (_, i) => ({
-        acronym: `L${i + 1}`,
-        name: `Label ${i + 1}`,
-        enabled: i < 5
-      }))
+      labelKeyOne: "1",
+      labelNameOne: "No vains",
+      labelEnabledOne: true,
+      labelKeyTwo: "2",
+      labelNameTwo: "Stent",
+      labelEnabledTwo: true,
+      labelKeyThree: "3",
+      labelNameThree: "Coil",
+      labelEnabledThree: true,
+      labelKeyFour: "4",
+      labelNameFour: "Flow Diverters",
+      labelEnabledFour: true,
+      labelKeyFive: "5",
+      labelNameFive: "Dental Artifacts",
+      labelEnabledFive: true,
+      labelKeySix: "6",
+      labelNameSix: "Label name 6",
+      labelEnabledSix: false,
+      labelKeySeven: "7",
+      labelNameSeven: "Label name 7",
+      labelEnabledSeven: false,
+      labelKeyEight: "8",
+      labelNameEight: "Label name 8",
+      labelEnabledEight: false,
+      labelKeyNine: "9",
+      labelNameNine: "Label name 9",
+      labelEnabledNine: false,
+      labelKeyTen: "10",
+      labelNameTen: "Label name 10",
+      labelEnabledTen: false,
     },
     paths: {
       imagePath: "/images/",
@@ -148,6 +175,7 @@ export default function ImageGallery() {
         setSettings(settingsData);
       } catch (error) {
         console.error("Error loading settings:", error);
+        // We'll keep the default settings from useState
       }
     };
     
@@ -156,26 +184,110 @@ export default function ImageGallery() {
   
   // Get all enabled labels with their information
   const enabledLabels = useMemo(() => {
-    if (!settings.hotkeys.labels || !Array.isArray(settings.hotkeys.labels)) {
-      return [];
+    const labels: LabelInfo[] = [];
+    
+    if (settings.hotkeys.labelEnabledOne) {
+      labels.push({
+        key: settings.hotkeys.labelKeyOne,
+        name: settings.hotkeys.labelNameOne,
+        enabled: settings.hotkeys.labelEnabledOne,
+        color: "#EF4444" // red-500
+      });
     }
     
-    const colors = generateLabelColors(settings.hotkeys.labels.length);
+    if (settings.hotkeys.labelEnabledTwo) {
+      labels.push({
+        key: settings.hotkeys.labelKeyTwo,
+        name: settings.hotkeys.labelNameTwo,
+        enabled: settings.hotkeys.labelEnabledTwo,
+        color: "#FBBF24" // amber-400
+      });
+    }
     
-    return settings.hotkeys.labels
-      .map((label, index) => ({
-        acronym: label.acronym,
-        name: label.name,
-        enabled: label.enabled,
-        color: colors[index]
-      }))
-      .filter(label => label.enabled);
-  }, [settings.hotkeys.labels]);
+    if (settings.hotkeys.labelEnabledThree) {
+      labels.push({
+        key: settings.hotkeys.labelKeyThree,
+        name: settings.hotkeys.labelNameThree,
+        enabled: settings.hotkeys.labelEnabledThree,
+        color: "#32A832" // green
+      });
+    }
+    
+    if (settings.hotkeys.labelEnabledFour) {
+      labels.push({
+        key: settings.hotkeys.labelKeyFour,
+        name: settings.hotkeys.labelNameFour,
+        enabled: settings.hotkeys.labelEnabledFour,
+        color: "#00CCCC" // cyan-ish
+      });
+    }
+    
+    if (settings.hotkeys.labelEnabledFive) {
+      labels.push({
+        key: settings.hotkeys.labelKeyFive,
+        name: settings.hotkeys.labelNameFive,
+        enabled: settings.hotkeys.labelEnabledFive,
+        color: "#CC00CC" // magenta-ish
+      });
+    }
+    
+    if (settings.hotkeys.labelEnabledSix) {
+      labels.push({
+        key: settings.hotkeys.labelKeySix,
+        name: settings.hotkeys.labelNameSix,
+        enabled: settings.hotkeys.labelEnabledSix,
+        color: "#3366FF" // blue
+      });
+    }
+    
+    if (settings.hotkeys.labelEnabledSeven) {
+      labels.push({
+        key: settings.hotkeys.labelKeySeven,
+        name: settings.hotkeys.labelNameSeven,
+        enabled: settings.hotkeys.labelEnabledSeven,
+        color: "#FF6600" // orange
+      });
+    }
+    if (settings.hotkeys.labelEnabledEight) {
+      labels.push({
+        key: settings.hotkeys.labelKeyEight,
+        name: settings.hotkeys.labelNameEight,
+        enabled: settings.hotkeys.labelEnabledEight,
+        color: "#F43F5E" // orange
+      });
+    }
+    if (settings.hotkeys.labelEnabledNine) {
+      labels.push({
+        key: settings.hotkeys.labelKeyNine,
+        name: settings.hotkeys.labelNameNine,
+        enabled: settings.hotkeys.labelEnabledNine,
+        color: "#84CC16" // orange
+      });
+    }
+    if (settings.hotkeys.labelEnabledTen) {
+      labels.push({
+        key: settings.hotkeys.labelKeyTen,
+        name: settings.hotkeys.labelNameTen,
+        enabled: settings.hotkeys.labelEnabledTen,
+        color: "##6366F1" // orange
+      });
+    }
+    return labels;
+  }, [settings.hotkeys]);
 
   // Get the maximum available label value
   const maxLabelValue = useMemo(() => {
     return enabledLabels.length;
   }, [enabledLabels]);
+
+  // Return a color based on the mark value
+  const getTriangleColor = (mark: LabelMark | undefined): string => {
+    if (!mark || mark.number <= 0 || mark.number > enabledLabels.length) {
+      return "";
+    }
+    
+    return enabledLabels[mark.number - 1].color;
+  };
 
   const getLabelNameByNumber = (number: number): string => {
     if (number === 0) {
@@ -189,37 +301,10 @@ export default function ImageGallery() {
     return "";
   };
 
-  const getLabelAcronymByNumber = (number: number): string => {
-    if (number === 0) {
-      return "";
-    }
-    
-    if (number > 0 && number <= enabledLabels.length) {
-      return enabledLabels[number - 1].acronym;
-    }
-    
-    return "";
-  };
-
-  // Find label by acronym (supports partial matching)
-  const findLabelByAcronym = (acronym: string): number => {
-    if (!acronym) return 0;
-    
-    const upperAcronym = acronym.toUpperCase();
-    
-    // First try exact match
-    const exactMatch = enabledLabels.findIndex(
-      label => label.acronym.toUpperCase() === upperAcronym
-    );
-    if (exactMatch >= 0) return exactMatch + 1;
-    
-    // Then try prefix match
-    const prefixMatch = enabledLabels.findIndex(
-      label => label.acronym.toUpperCase().startsWith(upperAcronym)
-    );
-    if (prefixMatch >= 0) return prefixMatch + 1;
-    
-    return 0;
+  // Map a key to its label value (1-based index in enabledLabels array)
+  const getKeyLabelValue = (key: string): number => {
+    const index = enabledLabels.findIndex(label => label.key === key);
+    return index >= 0 ? index + 1 : 0;
   };
 
   // Load CSV data and image metadata
@@ -231,6 +316,7 @@ export default function ImageGallery() {
         
         let response = await fetch(metadataPath);
         
+        // If the configured path fails, try the fallback path
         if (!response.ok) {
           console.warn(`Failed to load CSV from configured path: ${metadataPath}`);
           if (!response.ok) {
@@ -240,17 +326,21 @@ export default function ImageGallery() {
         
         const csvText = await response.text();
     
+        // Rest of your CSV processing code remains the same
         const lines = csvText.split("\n").filter((line) => line.trim() !== "");
         const cleanedHeaderLine = lines[0].replace("\r", "").trim();
         const headers = cleanedHeaderLine.split(",").map(header => header.trim());
     
+        // Debug: Log the headers to see what's available
         console.log("CSV Headers:", headers);
     
+        // Use case-insensitive search for column names
         const thumbnailIndex = headers.findIndex(header => 
           header.toLowerCase() === "filename");
         const labelIndex = headers.findIndex(header => 
           header.toLowerCase() === "label");
     
+        // Find indices of enabled metadata columns
         const metadataIndices: { [key: string]: number } = {};
         
         if (settings.metadata && settings.metadata.columns) {
@@ -262,6 +352,7 @@ export default function ImageGallery() {
           }
         }
     
+        // Debug: Log which indexes were found
         console.log("Column indexes:", {
           thumbnailIndex,
           metadataIndices,
@@ -277,6 +368,8 @@ export default function ImageGallery() {
         }
     
         const imagePath = settings.paths.imagePath;
+        
+        // Erstelle ein temporäres neues imageMarks-Objekt, das wir später setzen werden
         const newImageMarks: { [key: number]: LabelMark } = {};
         
         const images = lines.slice(1).map((line, idx) => {
@@ -284,8 +377,10 @@ export default function ImageGallery() {
           const fileName = columns[thumbnailIndex]?.trim();
           const encodedFileName = encodeURIComponent(fileName);
           
+          // Create metadata object with enabled columns
           const metadata: { [key: string]: string } = {};
           
+          // Add metadata from enabled columns
           Object.entries(metadataIndices).forEach(([columnName, columnIndex]) => {
             if (columnIndex !== -1) {
               metadata[columnName] = columns[columnIndex]?.trim() || "";
@@ -298,40 +393,40 @@ export default function ImageGallery() {
             metadata
           };
           
+          // Wenn die CSV einen Labelwert hat, versuchen wir ihn zu verwenden
           if (labelIndex !== -1) {
             const labelValue = columns[labelIndex]?.trim() || "";
             
             if (labelValue) {
               let labelNumber = 0;
               let labelName = labelValue;
-              let labelAcronym = "";
               
+              // Prüfen, ob das Label ein bekannter Name aus unseren enabledLabels ist
               const foundLabelIndex = enabledLabels.findIndex(
-                label => label.name === labelValue || label.acronym.toUpperCase() === labelValue.toUpperCase()
+                label => label.name === labelValue
               );
               
               if (foundLabelIndex >= 0) {
+                // Wenn wir das Label gefunden haben, verwenden wir seinen Index+1 als Nummer
                 labelNumber = foundLabelIndex + 1;
-                labelName = enabledLabels[foundLabelIndex].name;
-                labelAcronym = enabledLabels[foundLabelIndex].acronym;
               } else if (!isNaN(parseInt(labelValue))) {
+                // Wenn es eine Zahl ist, dann versuchen wir, den Namen zu finden
                 labelNumber = parseInt(labelValue);
                 if (labelNumber > 0 && labelNumber <= enabledLabels.length) {
                   labelName = enabledLabels[labelNumber - 1].name;
-                  labelAcronym = enabledLabels[labelNumber - 1].acronym;
                 } else {
                   labelName = "No label";
-                  labelAcronym = "";
                 }
               }
               
+              // Speichere sowohl Nummer als auch Namen im ImageItem
               imageItem.label = labelNumber;
               imageItem.labelName = labelName;
               
+              // Speichere im imageMarks Objekt
               newImageMarks[idx] = {
                 number: labelNumber,
-                name: labelName,
-                acronym: labelAcronym
+                name: labelName
               };
             }
           }
@@ -340,6 +435,7 @@ export default function ImageGallery() {
         });
     
         setImagePaths(images);
+        // Setze die imageMarks am Ende
         setImageMarks(newImageMarks);
         
       } catch (error) {
@@ -349,13 +445,13 @@ export default function ImageGallery() {
     };
   
     loadCSVData();
-  }, [settings.paths.metadataPath, settings.paths.imagePath, settings.metadata, enabledLabels]);
+  }, [settings.paths.metadataPath, settings.paths.imagePath, settings.metadata]);
 
   // Calculate grid layout based on container size
   useEffect(() => {
     if (!gridRef.current) return;
   
-    const gap = 4;
+    const gap = 4; // Gap in pixels between images
     const cols = settings.layout.imagesPerColumn;
   
     const updateGridLayout = () => {
@@ -388,6 +484,7 @@ export default function ImageGallery() {
       .filter(({ idx }) => {
         if (filter === "all") return true;
         if (filter === "unmarked") {
+          // Check for images with no entry OR images with "No label"
           return !imageMarks[idx] || imageMarks[idx].name === "No label";
         }
         const filterNum = Number(filter);
@@ -405,10 +502,12 @@ export default function ImageGallery() {
   const selectedImagesForPage = filteredImages.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredImages.length / itemsPerPage) || 1;
 
+  // Neue Funktion für die Fehleranzeige
   const showError = (message: string) => {
     setErrorMessage(message);
     setShowErrorMessage(true);
     
+    // Automatisches Ausblenden nach 5 Sekunden
     if (errorTimerRef.current) {
       window.clearTimeout(errorTimerRef.current);
     }
@@ -432,21 +531,27 @@ export default function ImageGallery() {
         return;
       }
   
+      // Erhöhe den Zähler für ausstehende Speicherungen
       setPendingSaves(prev => prev + 1);
       
       let updatedCsvContent = '';
       
+      // Process headers
       let headers = [...csvData.headers];
       if (!hasLabelColumn) {
         headers.push('label');
       }
       updatedCsvContent += headers.join(',') + '\n';
       
+      // Process data rows
       const dataLines = csvData.lines.slice(1);
       dataLines.forEach((line, idx) => {
         const columns = line.replace("\r", "").split(',').map(col => col.trim());
         
+        // Get the label name for this image
         const labelMark = imageMarks[idx];
+        
+        // Verwende den Namen des Labels anstatt der Nummer
         const labelNameToSave = labelMark ? labelMark.name : "No label";
         
         if (hasLabelColumn) {
@@ -483,34 +588,42 @@ export default function ImageGallery() {
     } catch (error) {
       console.error('Error saving labels to CSV:', error);
       
+      // Verringern der ausstehenden Speicherungen und Fehler anzeigen
       setPendingSaves(prev => prev - 1);
       setLastSaveSuccess(false);
       
+      // Fehlermeldung anzeigen
       showError('Error saving the labels to the CSV file. Your changes may not have been saved.');
     }
   };
 
+  // Effect, um auf Änderungen im Speicherstatus zu reagieren
   useEffect(() => {
     if (pendingSaves === 0 && !lastSaveSuccess) {
       showError('Error when saving the labels. The last changes were not saved in the CSV file.');
     }
   }, [pendingSaves, lastSaveSuccess]);
 
-  // Cycle through valid label values
+  // Cycle through valid label values (0 through the maximum enabled label)
   const cycleMarking = useCallback((globalIndex: number) => {
     setImageMarks((prev) => {
+      // Hole die aktuelle Markierung oder setze sie auf 0 wenn nicht vorhanden
       const currentMark = prev[globalIndex]?.number ?? 0;
+      
+      // Berechne den neuen Wert im Zyklus
       const newMarkNumber = (currentMark + 1) % (maxLabelValue + 1);
       
+      // Erstelle das neue Marks-Objekt
       const newMarks = { ...prev };
       
       if (newMarkNumber === 0) {
+        // Wenn der neue Wert 0 ist (keine Markierung), entferne den Eintrag
         delete newMarks[globalIndex];
       } else {
+        // Ansonsten, setze die neue Markierung mit Nummer und Namen
         newMarks[globalIndex] = {
           number: newMarkNumber,
-          name: getLabelNameByNumber(newMarkNumber),
-          acronym: getLabelAcronymByNumber(newMarkNumber)
+          name: getLabelNameByNumber(newMarkNumber)
         };
       }
       
@@ -521,6 +634,7 @@ export default function ImageGallery() {
   // Set specific mark value for current image
   const updateMarkingForCurrentImage = useCallback(
     (newMark: number) => {
+      // Only update if the mark is valid (0 or within range of enabled labels)
       if (newMark < 0 || (newMark > 0 && newMark > maxLabelValue)) {
         return;
       }
@@ -532,12 +646,13 @@ export default function ImageGallery() {
           const newMarks = { ...prev };
           
           if (newMark === 0) {
+            // Wenn kein Label, entferne den Eintrag
             delete newMarks[globalIndex];
           } else {
+            // Ansonsten, speichere Nummer und Namen
             newMarks[globalIndex] = {
               number: newMark,
-              name: getLabelNameByNumber(newMark),
-              acronym: getLabelAcronymByNumber(newMark)
+              name: getLabelNameByNumber(newMark)
             };
           }
           
@@ -547,17 +662,7 @@ export default function ImageGallery() {
     },
     [filteredImages, currentPage, currentImageIndex, itemsPerPage, maxLabelValue, enabledLabels]
   );
-
-  // Set marking by acronym for current image
-  const setMarkingByAcronym = useCallback(
-    (acronym: string) => {
-      const labelNumber = findLabelByAcronym(acronym);
-      if (labelNumber > 0) {
-        updateMarkingForCurrentImage(labelNumber);
-      }
-    },
-    [findLabelByAcronym, updateMarkingForCurrentImage]
-  );
+  
 
   // Navigation functions
   const goToNextPage = useCallback(() => {
@@ -611,47 +716,30 @@ export default function ImageGallery() {
     const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
     return currentItem ? currentItem.img : null;
   }, [filteredImages, currentPage, currentImageIndex, itemsPerPage]);
-
-  // Reset typing buffer after delay
-  useEffect(() => {
-    if (typingBuffer) {
-      if (typingTimerRef.current) {
-        window.clearTimeout(typingTimerRef.current);
-      }
-      
-      typingTimerRef.current = window.setTimeout(() => {
-        setTypingBuffer("");
-      }, 1000);
-    }
-    
-    return () => {
-      if (typingTimerRef.current) {
-        window.clearTimeout(typingTimerRef.current);
-      }
-    };
-  }, [typingBuffer]);
-
   // Keyboard event handler for navigation and labeling
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (showSettings || showLabelDropdown) return;
+      if (showSettings) return; // Ignore keypresses if settings are open
 
       const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
 
+      // --- NEW: Copy Functionality ---
       if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'c') {
-        event.preventDefault();
+        event.preventDefault(); // Prevent default browser copy behavior
         if (currentItem) {
           const fileName = currentItem.img.fileName;
           navigator.clipboard.writeText(fileName)
             .then(() => {
               console.log(`Filename copied to clipboard: ${fileName}`);
+              // Optional: Add visual feedback here (e.g., brief message)
             })
             .catch(err => {
               console.error('Failed to copy filename: ', err);
-              showError('Failed to copy filename to clipboard.');
+              showError('Failed to copy filename to clipboard.'); // Use existing error display
             });
         }
-      } else if (event.key === "ArrowLeft") {
+      
+    } else if (event.key === "ArrowLeft") {
         if (event.ctrlKey || event.metaKey) {
           goToPreviousPage();
         } else {
@@ -667,39 +755,30 @@ export default function ImageGallery() {
         goUpImage();
       } else if (event.key === "ArrowDown") {
         goDownImage();
-      } else if (event.key === "0") {
+      } else if (event.key === "0") { // Unlabel hotkey
         updateMarkingForCurrentImage(0);
-        setTypingBuffer("");
       } else if (event.key === settings.hotkeys.labelRotation) {
         if (currentItem) {
           cycleMarking(currentItem.idx);
         }
-        setTypingBuffer("");
-      } else if (event.key === " ") {
-        event.preventDefault();
-        if (currentItem) {
-          setZoomedImage((prevZoom) =>
-            prevZoom === currentItem.img.fullPath ? null : currentItem.img.fullPath
-          );
-        }
-        setTypingBuffer("");
-      } else if (event.key === "l" || event.key === "L") {
-        event.preventDefault();
-        setShowLabelDropdown(prev => !prev);
-        setTypingBuffer("");
-      } else if (/^[a-zA-Z]$/.test(event.key)) {
-        const newBuffer = typingBuffer + event.key.toUpperCase();
-        setTypingBuffer(newBuffer);
-        
-        const matchingLabel = findLabelByAcronym(newBuffer);
-        if (matchingLabel > 0) {
-          updateMarkingForCurrentImage(matchingLabel);
+      } else if (event.key === " ") { // Zoom toggle
+          event.preventDefault();
+          if (currentItem) {
+            setZoomedImage((prevZoom) =>
+              prevZoom === currentItem.img.fullPath ? null : currentItem.img.fullPath
+            );
+          }
+      } else {
+        // Check if the pressed key matches any of the enabled label keys
+        // This needs to be last to avoid conflicts with Ctrl+C etc.
+        const labelValue = getKeyLabelValue(event.key);
+        if (labelValue > 0) {
+          updateMarkingForCurrentImage(labelValue);
         }
       }
     },
     [
       showSettings,
-      showLabelDropdown,
       filteredImages,
       currentPage,
       itemsPerPage,
@@ -713,26 +792,31 @@ export default function ImageGallery() {
       goToNextPage,
       goToPreviousPage,
       settings.hotkeys,
-      typingBuffer,
-      findLabelByAcronym,
-      showError
+      getKeyLabelValue,
+      showError // Added showError dependency
+      // setZoomedImage is implicitly stable via useState
     ]
   );
 
+  // Add/remove keyboard event listeners
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Find the zoomed image's metadata if one is selected
   const zoomedImageItem = imagePaths.find((item) => item.fullPath === zoomedImage);
 
+  // Toggle settings view
   const toggleSettings = () => {
     setShowSettings(!showSettings);
   };
 
+  // Refresh settings after the settings component closes
   const handleSettingsClose = async () => {
     setShowSettings(false);
     
+    // Reload settings
     try {
       const response = await fetch("/settings.json");
       const settingsData = await response.json();
@@ -742,26 +826,46 @@ export default function ImageGallery() {
     }
   };
 
+  // Show settings panel if settings view is active
   if (showSettings) {
     return <Settings onClose={handleSettingsClose} />;
   }
 
   return (
     <div className="fixed inset-0 flex flex-col bg-white">
-      {/* Simplified Top Bar - removed label display */}
+      {/* Top Bar */}
       <div className={`sticky top-0 ${settings.layout.selectedColorHeaderBackground} z-10`}>
-        <div className="flex items-center justify-between p-1.5">
-          {/* Title */}
-          <h1 className={`text-xl font-semibold text-slate-800`}>
-            {settings.layout.galleryTitle || "Image Gallery"}
-          </h1>
-         
-          {/* Right side controls */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-600 font-medium text-sm">
-              {enabledLabels.length} labels enabled
+        <div className="flex flex-wrap items-center p-1.5 relative">
+          {/* Labels container that will wrap to next line only when needed */}
+          <div className="flex flex-wrap items-center gap-2 max-w-[40%]">
+            <span className="px-3 py-1.5 rounded-md text-sm bg-slate-100 text-slate-700 font-medium border border-slate-200">
+              0: Unclassified
             </span>
-            <span className="text-slate-600 font-medium">Filter:</span>
+            {enabledLabels.map((label, index) => (
+              <span
+                key={index}
+                className="px-3 py-1.5 rounded-md text-sm border font-medium flex items-center gap-1.5"
+                style={{
+                  backgroundColor: `${label.color}40`,
+                  color: "black",
+                  borderColor: `${label.color}60`
+                }}
+              >
+                {label.key}: {label.name}
+              </span>
+            ))}
+          </div>
+         
+          {/* Center title - remains centered on the first row */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 text-center">
+            <h1 className={`text-xl font-semibold text-slate-800`}>
+              {settings.layout.galleryTitle || "Image Gallery"}
+            </h1>
+          </div>
+         
+          {/* Filter controls - adjusted to match other element heights */}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-slate-600 font-medium">Filter Results:</span>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -769,9 +873,10 @@ export default function ImageGallery() {
             >
               <option value="all">All Images</option>
               <option value="unmarked">Unclassified</option>
+              {/* Only include enabled labels in the filter dropdown */}
               {enabledLabels.map((label, index) => (
                 <option key={index} value={(index + 1).toString()}>
-                  {label.acronym}: {label.name}
+                  {label.name}
                 </option>
               ))}
             </select>
@@ -784,24 +889,23 @@ export default function ImageGallery() {
           </div>
         </div>
       </div>
-
       {/* Image Grid */}
       <div className={`flex-grow overflow-auto p-1.5 ${settings.layout.selectedColorMainBackground}`}>
-        <div
-          ref={gridRef}
-          className="grid gap-1 justify-center"
-          style={{
-            gridTemplateColumns: `repeat(${settings.layout.imagesPerColumn}, ${computedImageSize}px)`,
-            alignContent: "start",
-            height: "100%",
-          }}
-        >
+      <div
+        ref={gridRef}
+        className="grid gap-1 justify-center"
+        style={{
+          gridTemplateColumns: `repeat(${settings.layout.imagesPerColumn}, ${computedImageSize}px)`,
+          alignContent: "start",
+          height: "100%",
+        }}
+      >
           {selectedImagesForPage.map(({ img, idx }, index) => {
-            const mark = imageMarks[idx];
+            const mark = imageMarks[idx] ?? 0;
             const containerStyle: CSSProperties = {
               width: `${computedImageSize}px`,
               height: `${computedImageSize}`,
-              border: currentImageIndex === index ? "3px solid blue" : "none",
+              border: currentImageIndex === index ? "2px solid blue" : "none",
             };
 
             return (
@@ -810,17 +914,19 @@ export default function ImageGallery() {
                 className="relative overflow-hidden rounded-md shadow-sm bg-gray-50"
                 style={containerStyle}
               >
-                {mark && mark.acronym && (
+                {/* Mark indicator triangle */}
+                {imageMarks[idx] && (
                   <div
-                    className="absolute top-1 right-1 px-2 py-1 rounded text-xs font-bold shadow-md"
                     style={{
-                      backgroundColor: enabledLabels[mark.number - 1]?.color || "#999",
-                      color: "white",
-                      zIndex: 10
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      width: 0,
+                      height: 0,
+                      borderTop: "20px solid " + getTriangleColor(imageMarks[idx]),
+                      borderLeft: "20px solid transparent",
                     }}
-                  >
-                    {mark.acronym}
-                  </div>
+                  />
                 )}
                 <img
                   className="w-full h-full object-cover cursor-pointer"
@@ -837,7 +943,7 @@ export default function ImageGallery() {
         </div>
       </div>
 
-      {/* Bottom Bar */}
+      {/* Bottom Bar with Controls */}
       <div className={`grid grid-cols-3 items-center p-1.5 ${settings.layout.selectedColorFooterBackground} shadow-inner`}>
         <div className="flex space-x-2">
           <button
@@ -848,16 +954,6 @@ export default function ImageGallery() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Export Labels
-          </button>
-          
-          <button
-            onClick={() => setShowLabelDropdown(!showLabelDropdown)}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-all duration-200 shadow-sm flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-            Select Label (L)
           </button>
         </div>
 
@@ -886,76 +982,10 @@ export default function ImageGallery() {
             </svg>
           </button>
         </div>
-        
-        <div className="flex justify-end">
-          {typingBuffer && (
-            <div className="px-3 py-1.5 bg-yellow-100 text-yellow-800 rounded-md text-sm font-medium border border-yellow-300">
-              Typing: {typingBuffer}
-            </div>
-          )}
-        </div>
+        <div></div>
       </div>
 
-      {/* Label Selection Dropdown */}
-      {showLabelDropdown && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setShowLabelDropdown(false)}
-        >
-          <div className="bg-white rounded-lg shadow-xl p-4 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-4 text-slate-800">Select Label</h3>
-            <div className="space-y-2 overflow-y-auto flex-grow">
-              <button
-                onClick={() => {
-                  updateMarkingForCurrentImage(0);
-                  setShowLabelDropdown(false);
-                }}
-                className="w-full px-4 py-3 text-left rounded-md bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-300"
-              >
-                <div className="font-medium">Unclassified</div>
-                <div className="text-sm text-slate-600">Remove label</div>
-              </button>
-              
-              {enabledLabels.map((label, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    updateMarkingForCurrentImage(index + 1);
-                    setShowLabelDropdown(false);
-                  }}
-                  className="w-full px-4 py-3 text-left rounded-md hover:bg-slate-50 transition-colors border-2"
-                  style={{
-                    backgroundColor: `${label.color}20`,
-                    borderColor: `${label.color}60`
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{label.name}</div>
-                      <div className="text-sm text-slate-600">Acronym: {label.acronym}</div>
-                    </div>
-                    <div 
-                      className="px-3 py-1 rounded text-white font-bold text-sm"
-                      style={{ backgroundColor: label.color }}
-                    >
-                      {label.acronym}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowLabelDropdown(false)}
-              className="mt-4 w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
-            >
-              Cancel (ESC)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Zoom Overlay */}
+      {/* Zoom Overlay with Metadata */}
       {zoomedImage && (
         <div
           className="fixed inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-50"
@@ -963,6 +993,7 @@ export default function ImageGallery() {
         >
           {zoomedImageItem && (
             <div className="bg-white p-1.5 mb-4 rounded shadow-md text-black text-center">
+              {/* Only show label if enabled in settings */}
               {settings.metadata.columns.some(col => col.name.toLowerCase() === "label" && col.enabled) && (
                 <p>
                   <strong>Label:</strong>{" "}
@@ -972,7 +1003,9 @@ export default function ImageGallery() {
                 </p>
               )}
               
+              {/* Render only enabled metadata columns dynamically */}
               {Object.entries(zoomedImageItem.metadata).map(([columnName, value]) => {
+                // Check if this column is enabled in settings
                 const isEnabled = settings.metadata.columns.some(
                   col => col.name.toLowerCase() === columnName.toLowerCase() && col.enabled
                 );
@@ -993,8 +1026,7 @@ export default function ImageGallery() {
           />
         </div>
       )}
-
-      {/* Error Message */}
+      {/* Hier die Fehlerbenachrichtigung einfügen */}
       {showErrorMessage && (
         <div 
           className="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded-md shadow-lg z-50 flex items-center"
@@ -1041,19 +1073,28 @@ export default function ImageGallery() {
     </div>
   );
 
-  function exportSelection() {
-    try {
-      const metadataPath = settings.paths.metadataPath;
-      const link = document.createElement("a");
-      link.setAttribute("href", metadataPath);
-      const fileName = metadataPath.split('/').pop() || "metadata.csv";
-      link.setAttribute("download", fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      console.log('Metadata file export initiated');
-    } catch (error) {
-      console.error('Error exporting metadata file:', error);
+    // Export current image selection to CSV
+    function exportSelection() {
+      try {
+        // Get the metadata path from settings
+        const metadataPath = settings.paths.metadataPath;
+        
+        // Create a download link that points directly to the metadata file
+        const link = document.createElement("a");
+        link.setAttribute("href", metadataPath);
+        
+        // Extract filename from the path
+        const fileName = metadataPath.split('/').pop() || "metadata.csv";
+        link.setAttribute("download", fileName);
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('Metadata file export initiated');
+      } catch (error) {
+        console.error('Error exporting metadata file:', error);
+      }
     }
-  }
 }
