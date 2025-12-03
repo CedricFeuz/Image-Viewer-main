@@ -7,7 +7,7 @@ import React, {
   useMemo,
   CSSProperties,
 } from "react";
-import { FaCog } from 'react-icons/fa';
+import { FaCog, FaPlay, FaPause } from 'react-icons/fa';
 
 // Core interfaces for app data structures
 interface SettingsData {
@@ -46,6 +46,7 @@ interface ImageItem {
   };
   label?: number;
   labelName?: string;
+  comment?: string;
 }
 
 interface LabelInfo {
@@ -59,6 +60,13 @@ interface LabelMark {
   number: number;
   name: string;
   acronym: string;
+}
+
+// History state for undo/redo
+interface HistoryState {
+  imageMarks: { [key: number]: LabelMark };
+  imageComments: { [key: number]: string };
+  description: string; // For debugging/display purposes
 }
 
 // Generate colors for 50 labels
@@ -78,9 +86,18 @@ const generateLabelColors = (count: number): string[] => {
   return colors.slice(0, count);
 };
 
+// Maximum history size to prevent memory issues
+const MAX_HISTORY_SIZE = 50;
+
+// Helper function to check if a file is a GIF
+const isGifFile = (fileName: string): boolean => {
+  return fileName.toLowerCase().endsWith('.gif');
+};
+
 export default function ImageGallery() {
   const [imagePaths, setImagePaths] = useState<ImageItem[]>([]);
   const [imageMarks, setImageMarks] = useState<{ [key: number]: LabelMark }>({});
+  const [imageComments, setImageComments] = useState<{ [key: number]: string }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(15);
@@ -90,11 +107,16 @@ export default function ImageGallery() {
   const [showSettings, setShowSettings] = useState(false);
   const [csvData, setCsvData] = useState<{headers: string[], lines: string[]}>({ headers: [], lines: [] });
   const [hasLabelColumn, setHasLabelColumn] = useState(false);
+  const [hasCommentColumn, setHasCommentColumn] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingSaves, setPendingSaves] = useState(0);
   const [lastSaveSuccess, setLastSaveSuccess] = useState(true);
   const errorTimerRef = useRef<number | null>(null);
+  
+  // Undo/Redo history stacks
+  const [undoStack, setUndoStack] = useState<HistoryState[]>([]);
+  const [redoStack, setRedoStack] = useState<HistoryState[]>([]);
   
   // New states for acronym typing
   const [typingBuffer, setTypingBuffer] = useState<string>("");
@@ -102,6 +124,16 @@ export default function ImageGallery() {
   
   // New state for label selection dropdown
   const [showLabelDropdown, setShowLabelDropdown] = useState(false);
+  
+  // New state for comment dialog
+  const [showCommentDialog, setShowCommentDialog] = useState(false);
+  const [currentComment, setCurrentComment] = useState("");
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // GIF pause states
+  const [pausedGifs, setPausedGifs] = useState<Set<number>>(new Set());
+  const [pausedFrames, setPausedFrames] = useState<{ [key: number]: string }>({});
+  const imageRefs = useRef<{ [key: number]: HTMLImageElement | null }>({});
   
   const [settings, setSettings] = useState<SettingsData>({
     hotkeys: {
@@ -129,12 +161,117 @@ export default function ImageGallery() {
         { name: "label", enabled: true },
         { name: "gender", enabled: true },
         { name: "age", enabled: true },
-        { name: "description", enabled: true }
+        { name: "description", enabled: true },
+        { name: "comment", enabled: true }
       ]
     }
   });
 
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // Capture current frame of a GIF using canvas
+  const captureGifFrame = useCallback((imgElement: HTMLImageElement): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = imgElement.naturalWidth || imgElement.width;
+    canvas.height = imgElement.naturalHeight || imgElement.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+    }
+    return canvas.toDataURL('image/png');
+  }, []);
+
+  // Toggle GIF pause state
+  const toggleGifPause = useCallback((idx: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation(); // Prevent triggering label cycle
+    }
+    
+    const imgElement = imageRefs.current[idx];
+    
+    if (pausedGifs.has(idx)) {
+      // Unpause - remove from paused set
+      setPausedGifs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(idx);
+        return newSet;
+      });
+    } else {
+      // Pause - capture current frame
+      if (imgElement) {
+        const frame = captureGifFrame(imgElement);
+        setPausedFrames(prev => ({ ...prev, [idx]: frame }));
+      }
+      setPausedGifs(prev => new Set(prev).add(idx));
+    }
+  }, [pausedGifs, captureGifFrame]);
+
+  // Save current state to undo stack before making changes
+  const saveToHistory = useCallback((description: string) => {
+    const currentState: HistoryState = {
+      imageMarks: { ...imageMarks },
+      imageComments: { ...imageComments },
+      description
+    };
+    
+    setUndoStack(prev => {
+      const newStack = [...prev, currentState];
+      // Limit stack size
+      if (newStack.length > MAX_HISTORY_SIZE) {
+        return newStack.slice(-MAX_HISTORY_SIZE);
+      }
+      return newStack;
+    });
+    
+    // Clear redo stack when new action is performed
+    setRedoStack([]);
+  }, [imageMarks, imageComments]);
+
+  // Undo function
+  const undo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    
+    // Save current state to redo stack
+    const currentState: HistoryState = {
+      imageMarks: { ...imageMarks },
+      imageComments: { ...imageComments },
+      description: "Current state"
+    };
+    setRedoStack(prev => [...prev, currentState]);
+    
+    // Get last state from undo stack
+    const previousState = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+    
+    // Apply previous state
+    setImageMarks(previousState.imageMarks);
+    setImageComments(previousState.imageComments);
+    
+    console.log(`Undo: ${previousState.description}`);
+  }, [undoStack, imageMarks, imageComments]);
+
+  // Redo function
+  const redo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    
+    // Save current state to undo stack
+    const currentState: HistoryState = {
+      imageMarks: { ...imageMarks },
+      imageComments: { ...imageComments },
+      description: "Current state"
+    };
+    setUndoStack(prev => [...prev, currentState]);
+    
+    // Get last state from redo stack
+    const nextState = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, -1));
+    
+    // Apply next state
+    setImageMarks(nextState.imageMarks);
+    setImageComments(nextState.imageComments);
+    
+    console.log(`Redo: ${nextState.description}`);
+  }, [redoStack, imageMarks, imageComments]);
 
   // Load settings from settings.json
   useEffect(() => {
@@ -177,7 +314,7 @@ export default function ImageGallery() {
     return enabledLabels.length;
   }, [enabledLabels]);
 
-  const getLabelNameByNumber = (number: number): string => {
+  const getLabelNameByNumber = useCallback((number: number): string => {
     if (number === 0) {
       return "No label";
     }
@@ -187,9 +324,9 @@ export default function ImageGallery() {
     }
     
     return "";
-  };
+  }, [enabledLabels]);
 
-  const getLabelAcronymByNumber = (number: number): string => {
+  const getLabelAcronymByNumber = useCallback((number: number): string => {
     if (number === 0) {
       return "";
     }
@@ -199,10 +336,10 @@ export default function ImageGallery() {
     }
     
     return "";
-  };
+  }, [enabledLabels]);
 
   // Find label by acronym (supports partial matching)
-  const findLabelByAcronym = (acronym: string): number => {
+  const findLabelByAcronym = useCallback((acronym: string): number => {
     if (!acronym) return 0;
     
     const upperAcronym = acronym.toUpperCase();
@@ -220,7 +357,7 @@ export default function ImageGallery() {
     if (prefixMatch >= 0) return prefixMatch + 1;
     
     return 0;
-  };
+  }, [enabledLabels]);
 
   // Load CSV data and image metadata
   useEffect(() => {
@@ -250,12 +387,14 @@ export default function ImageGallery() {
           header.toLowerCase() === "filename");
         const labelIndex = headers.findIndex(header => 
           header.toLowerCase() === "label");
+        const commentIndex = headers.findIndex(header => 
+          header.toLowerCase() === "comment");
     
         const metadataIndices: { [key: string]: number } = {};
         
         if (settings.metadata && settings.metadata.columns) {
           for (const column of settings.metadata.columns) {
-            if (column.enabled && column.name.toLowerCase() !== "label") {
+            if (column.enabled && column.name.toLowerCase() !== "label" && column.name.toLowerCase() !== "comment") {
               metadataIndices[column.name] = headers.findIndex(header => 
                 header.toLowerCase() === column.name.toLowerCase());
             }
@@ -265,11 +404,13 @@ export default function ImageGallery() {
         console.log("Column indexes:", {
           thumbnailIndex,
           metadataIndices,
-          labelIndex
+          labelIndex,
+          commentIndex
         });
         
         setCsvData({ headers, lines });
         setHasLabelColumn(labelIndex !== -1);
+        setHasCommentColumn(commentIndex !== -1);
     
         if (thumbnailIndex === -1) {
           console.error("filename column not found");
@@ -278,6 +419,7 @@ export default function ImageGallery() {
     
         const imagePath = settings.paths.imagePath;
         const newImageMarks: { [key: number]: LabelMark } = {};
+        const newImageComments: { [key: number]: string } = {};
         
         const images = lines.slice(1).map((line, idx) => {
           const columns = line.replace("\r", "").split(",").map(col => col.trim());
@@ -298,6 +440,7 @@ export default function ImageGallery() {
             metadata
           };
           
+          // Load label
           if (labelIndex !== -1) {
             const labelValue = columns[labelIndex]?.trim() || "";
             
@@ -336,11 +479,29 @@ export default function ImageGallery() {
             }
           }
           
+          // Load comment
+          if (commentIndex !== -1) {
+            const commentValue = columns[commentIndex]?.trim() || "";
+            if (commentValue) {
+              imageItem.comment = commentValue;
+              newImageComments[idx] = commentValue;
+            }
+          }
+          
           return imageItem;
         });
     
         setImagePaths(images);
         setImageMarks(newImageMarks);
+        setImageComments(newImageComments);
+        
+        // Clear history when loading new data
+        setUndoStack([]);
+        setRedoStack([]);
+        
+        // Clear GIF pause states when loading new data
+        setPausedGifs(new Set());
+        setPausedFrames({});
         
       } catch (error) {
         console.error("Error loading CSV data:", error);
@@ -405,6 +566,49 @@ export default function ImageGallery() {
   const selectedImagesForPage = filteredImages.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredImages.length / itemsPerPage) || 1;
 
+  // Count GIFs on current page
+  const gifsOnPage = useMemo(() => {
+    return selectedImagesForPage.filter(({ img }) => isGifFile(img.fileName)).length;
+  }, [selectedImagesForPage]);
+
+  const pausedGifsOnPage = useMemo(() => {
+    return selectedImagesForPage.filter(({ img, idx }) => 
+      isGifFile(img.fileName) && pausedGifs.has(idx)
+    ).length;
+  }, [selectedImagesForPage, pausedGifs]);
+
+  // Pause all GIFs on current page
+  const pauseAllGifs = useCallback(() => {
+    const gifIndices = selectedImagesForPage
+      .filter(({ img }) => isGifFile(img.fileName))
+      .map(({ idx }) => idx);
+    
+    const newPausedFrames: { [key: number]: string } = { ...pausedFrames };
+    
+    gifIndices.forEach(idx => {
+      const imgElement = imageRefs.current[idx];
+      if (imgElement && !pausedGifs.has(idx)) {
+        newPausedFrames[idx] = captureGifFrame(imgElement);
+      }
+    });
+    
+    setPausedFrames(newPausedFrames);
+    setPausedGifs(new Set([...Array.from(pausedGifs), ...gifIndices]));
+  }, [selectedImagesForPage, pausedGifs, pausedFrames, captureGifFrame]);
+
+  // Resume all GIFs on current page
+  const resumeAllGifs = useCallback(() => {
+    const gifIndices = selectedImagesForPage
+      .filter(({ img }) => isGifFile(img.fileName))
+      .map(({ idx }) => idx);
+    
+    setPausedGifs(prev => {
+      const newSet = new Set(prev);
+      gifIndices.forEach(idx => newSet.delete(idx));
+      return newSet;
+    });
+  }, [selectedImagesForPage]);
+
   const showError = (message: string) => {
     setErrorMessage(message);
     setShowErrorMessage(true);
@@ -418,14 +622,14 @@ export default function ImageGallery() {
     }, 5000);
   };
 
-  // Auto-save imageMarks to CSV
+  // Auto-save imageMarks and comments to CSV
   useEffect(() => {
-    if (Object.keys(imageMarks).length > 0) {
+    if (Object.keys(imageMarks).length > 0 || Object.keys(imageComments).length > 0) {
       saveLabelsToCSV();
     }
-  }, [imageMarks]);
+  }, [imageMarks, imageComments]);
 
-  // Save labels back to CSV file
+  // Save labels and comments back to CSV file
   const saveLabelsToCSV = async () => {
     try {
       if (imagePaths.length === 0 || csvData.lines.length <= 1) {
@@ -436,27 +640,42 @@ export default function ImageGallery() {
       
       let updatedCsvContent = '';
       
+      // Build headers - track positions for new columns
       let headers = [...csvData.headers];
-      if (!hasLabelColumn) {
+      let labelColumnIndex = csvData.headers.findIndex(h => h.toLowerCase() === 'label');
+      let commentColumnIndex = csvData.headers.findIndex(h => h.toLowerCase() === 'comment');
+      
+      // Add label column if it doesn't exist
+      if (labelColumnIndex === -1) {
+        labelColumnIndex = headers.length;
         headers.push('label');
       }
+      
+      // Add comment column if it doesn't exist
+      if (commentColumnIndex === -1) {
+        commentColumnIndex = headers.length;
+        headers.push('comment');
+      }
+      
       updatedCsvContent += headers.join(',') + '\n';
       
       const dataLines = csvData.lines.slice(1);
       dataLines.forEach((line, idx) => {
         const columns = line.replace("\r", "").split(',').map(col => col.trim());
         
+        // Ensure columns array has enough elements for all headers
+        while (columns.length < headers.length) {
+          columns.push('');
+        }
+        
+        // Handle label - set at the correct index
         const labelMark = imageMarks[idx];
         const labelNameToSave = labelMark ? labelMark.name : "No label";
+        columns[labelColumnIndex] = labelNameToSave;
         
-        if (hasLabelColumn) {
-          const labelIndex = csvData.headers.indexOf('label');
-          if (labelIndex !== -1) {
-            columns[labelIndex] = labelNameToSave;
-          }
-        } else {
-          columns.push(labelNameToSave);
-        }
+        // Handle comment - set at the correct index
+        const comment = imageComments[idx] || "";
+        columns[commentColumnIndex] = comment;
         
         updatedCsvContent += columns.join(',') + '\n';
       });
@@ -477,7 +696,7 @@ export default function ImageGallery() {
         throw new Error(errorData.message || 'Failed to save CSV file');
       }
       
-      console.log('Labels saved to CSV successfully');
+      console.log('Labels and comments saved to CSV successfully');
       setPendingSaves(prev => prev - 1);
       setLastSaveSuccess(true);
     } catch (error) {
@@ -496,12 +715,16 @@ export default function ImageGallery() {
     }
   }, [pendingSaves, lastSaveSuccess]);
 
-  // Cycle through valid label values
+  // Cycle through valid label values (with history)
   const cycleMarking = useCallback((globalIndex: number) => {
+    const currentMark = imageMarks[globalIndex]?.number ?? 0;
+    const newMarkNumber = (currentMark + 1) % (maxLabelValue + 1);
+    const imageName = imagePaths[globalIndex]?.fileName || `Image ${globalIndex}`;
+    
+    // Save to history before making changes
+    saveToHistory(`Label changed on ${imageName}`);
+    
     setImageMarks((prev) => {
-      const currentMark = prev[globalIndex]?.number ?? 0;
-      const newMarkNumber = (currentMark + 1) % (maxLabelValue + 1);
-      
       const newMarks = { ...prev };
       
       if (newMarkNumber === 0) {
@@ -516,9 +739,9 @@ export default function ImageGallery() {
       
       return newMarks;
     });
-  }, [maxLabelValue, enabledLabels]);
+  }, [maxLabelValue, imageMarks, imagePaths, saveToHistory, getLabelNameByNumber, getLabelAcronymByNumber]);
 
-  // Set specific mark value for current image
+  // Set specific mark value for current image (with history)
   const updateMarkingForCurrentImage = useCallback(
     (newMark: number) => {
       if (newMark < 0 || (newMark > 0 && newMark > maxLabelValue)) {
@@ -528,6 +751,11 @@ export default function ImageGallery() {
       const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
       if (currentItem) {
         const globalIndex = currentItem.idx;
+        const imageName = imagePaths[globalIndex]?.fileName || `Image ${globalIndex}`;
+        
+        // Save to history before making changes
+        saveToHistory(`Label set on ${imageName}`);
+        
         setImageMarks((prev) => {
           const newMarks = { ...prev };
           
@@ -545,7 +773,7 @@ export default function ImageGallery() {
         });
       }
     },
-    [filteredImages, currentPage, currentImageIndex, itemsPerPage, maxLabelValue, enabledLabels]
+    [filteredImages, currentPage, currentImageIndex, itemsPerPage, maxLabelValue, imagePaths, saveToHistory, getLabelNameByNumber, getLabelAcronymByNumber]
   );
 
   // Set marking by acronym for current image
@@ -558,6 +786,47 @@ export default function ImageGallery() {
     },
     [findLabelByAcronym, updateMarkingForCurrentImage]
   );
+
+  // Open comment dialog for current image
+  const openCommentDialog = useCallback(() => {
+    const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
+    if (currentItem) {
+      const existingComment = imageComments[currentItem.idx] || "";
+      setCurrentComment(existingComment);
+      setShowCommentDialog(true);
+    }
+  }, [filteredImages, currentPage, currentImageIndex, itemsPerPage, imageComments]);
+
+  // Save comment for current image (with history)
+  const saveComment = useCallback(() => {
+    const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
+    if (currentItem) {
+      const globalIndex = currentItem.idx;
+      const imageName = imagePaths[globalIndex]?.fileName || `Image ${globalIndex}`;
+      
+      // Save to history before making changes
+      saveToHistory(`Comment changed on ${imageName}`);
+      
+      setImageComments((prev) => {
+        const newComments = { ...prev };
+        if (currentComment.trim()) {
+          newComments[globalIndex] = currentComment.trim();
+        } else {
+          delete newComments[globalIndex];
+        }
+        return newComments;
+      });
+    }
+    setShowCommentDialog(false);
+    setCurrentComment("");
+  }, [filteredImages, currentPage, currentImageIndex, itemsPerPage, currentComment, imagePaths, saveToHistory]);
+
+  // Focus comment input when dialog opens
+  useEffect(() => {
+    if (showCommentDialog && commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  }, [showCommentDialog]);
 
   // Navigation functions
   const goToNextPage = useCallback(() => {
@@ -634,9 +903,48 @@ export default function ImageGallery() {
   // Keyboard event handler for navigation and labeling
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      // Don't handle keys when comment dialog is open (except Escape)
+      if (showCommentDialog) {
+        if (event.key === "Escape") {
+          setShowCommentDialog(false);
+          setCurrentComment("");
+        }
+        return;
+      }
+      
       if (showSettings || showLabelDropdown) return;
 
       const currentItem = filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex];
+
+      // Ctrl+Z for Undo
+      if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        undo();
+        return;
+      }
+      
+      // Ctrl+Y for Redo
+      if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      
+      // Ctrl+Shift+Z for Redo (alternative)
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+
+      // P key to toggle pause for current GIF
+      if (event.key.toLowerCase() === 'p' && !event.ctrlKey && !event.metaKey) {
+        if (currentItem && isGifFile(currentItem.img.fileName)) {
+          event.preventDefault();
+          toggleGifPause(currentItem.idx);
+        }
+        return;
+      }
 
       if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'c') {
         event.preventDefault();
@@ -683,11 +991,17 @@ export default function ImageGallery() {
           );
         }
         setTypingBuffer("");
-      } else if (event.key === "l" || event.key === "L") {
+      } else if (event.key === ".") {
+        // Open label dropdown with .
         event.preventDefault();
         setShowLabelDropdown(prev => !prev);
         setTypingBuffer("");
-      } else if (/^[a-zA-Z]$/.test(event.key)) {
+      } else if (event.key === ",") {
+        // Open comment dialog with ,
+        event.preventDefault();
+        openCommentDialog();
+        setTypingBuffer("");
+      } else if (/^[a-zA-Z]$/.test(event.key) && event.key.toLowerCase() !== 'p') {
         const newBuffer = typingBuffer + event.key.toUpperCase();
         setTypingBuffer(newBuffer);
         
@@ -700,6 +1014,7 @@ export default function ImageGallery() {
     [
       showSettings,
       showLabelDropdown,
+      showCommentDialog,
       filteredImages,
       currentPage,
       itemsPerPage,
@@ -715,7 +1030,11 @@ export default function ImageGallery() {
       settings.hotkeys,
       typingBuffer,
       findLabelByAcronym,
-      showError
+      showError,
+      openCommentDialog,
+      undo,
+      redo,
+      toggleGifPause
     ]
   );
 
@@ -725,6 +1044,7 @@ export default function ImageGallery() {
   }, [handleKeyDown]);
 
   const zoomedImageItem = imagePaths.find((item) => item.fullPath === zoomedImage);
+  const zoomedImageIndex = imagePaths.findIndex((item) => item.fullPath === zoomedImage);
 
   const toggleSettings = () => {
     setShowSettings(!showSettings);
@@ -758,6 +1078,51 @@ export default function ImageGallery() {
          
           {/* Right side controls */}
           <div className="flex items-center gap-2">
+            {/* Undo/Redo indicators */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={undo}
+                disabled={undoStack.length === 0}
+                className="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-slate-200"
+                title="Undo (Ctrl+Z)"
+              >
+                ↶ Undo {undoStack.length > 0 && `(${undoStack.length})`}
+              </button>
+              <button
+                onClick={redo}
+                disabled={redoStack.length === 0}
+                className="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-slate-200"
+                title="Redo (Ctrl+Y)"
+              >
+                ↷ Redo {redoStack.length > 0 && `(${redoStack.length})`}
+              </button>
+            </div>
+            
+            {/* GIF controls - only show if there are GIFs on the page */}
+            {gifsOnPage > 0 && (
+              <div className="flex items-center gap-1 border-l border-slate-300 pl-2">
+                <button
+                  onClick={pauseAllGifs}
+                  className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors border border-orange-200 flex items-center gap-1"
+                  title="Pause all GIFs"
+                >
+                  <FaPause className="w-3 h-3" />
+                  Pause All
+                </button>
+                <button
+                  onClick={resumeAllGifs}
+                  className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors border border-green-200 flex items-center gap-1"
+                  title="Play all GIFs"
+                >
+                  <FaPlay className="w-3 h-3" />
+                  Play All
+                </button>
+                <span className="text-xs text-slate-500 ml-1">
+                  {pausedGifsOnPage}/{gifsOnPage} paused
+                </span>
+              </div>
+            )}
+            
             <span className="text-slate-600 font-medium text-sm">
               {enabledLabels.length} labels enabled
             </span>
@@ -798,6 +1163,9 @@ export default function ImageGallery() {
         >
           {selectedImagesForPage.map(({ img, idx }, index) => {
             const mark = imageMarks[idx];
+            const comment = imageComments[idx];
+            const isGif = isGifFile(img.fileName);
+            const isPaused = pausedGifs.has(idx);
             const containerStyle: CSSProperties = {
               width: `${computedImageSize}px`,
               height: `${computedImageSize}`,
@@ -807,7 +1175,7 @@ export default function ImageGallery() {
             return (
               <div
                 key={idx}
-                className="relative overflow-hidden rounded-md shadow-sm bg-gray-50"
+                className="relative overflow-hidden rounded-md shadow-sm bg-gray-50 group"
                 style={containerStyle}
               >
                 {mark && mark.acronym && (
@@ -822,13 +1190,55 @@ export default function ImageGallery() {
                     {mark.acronym}
                   </div>
                 )}
+                {comment && (
+                  <div
+                    className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-xs bg-yellow-400 text-yellow-900 shadow-md"
+                    style={{ zIndex: 10 }}
+                    title={comment}
+                  >
+                    💬
+                  </div>
+                )}
+                
+                {/* GIF indicator and pause button */}
+                {isGif && (
+                  <>
+                    {/* GIF badge */}
+                    <div
+                      className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold bg-purple-600 text-white shadow-md"
+                      style={{ zIndex: 10 }}
+                    >
+                      GIF
+                    </div>
+                    
+                    {/* Pause/Play button - visible on hover or when paused */}
+                    <button
+                      onClick={(e) => toggleGifPause(idx, e)}
+                      className={`absolute bottom-1 right-1 w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 ${
+                        isPaused 
+                          ? 'bg-green-500 hover:bg-green-600 opacity-100' 
+                          : 'bg-orange-500 hover:bg-orange-600 opacity-0 group-hover:opacity-100'
+                      }`}
+                      style={{ zIndex: 15 }}
+                      title={isPaused ? "Play GIF (P)" : "Pause GIF (P)"}
+                    >
+                      {isPaused ? (
+                        <FaPlay className="w-3 h-3 text-white ml-0.5" />
+                      ) : (
+                        <FaPause className="w-3 h-3 text-white" />
+                      )}
+                    </button>
+                  </>
+                )}
+                
                 <img
+                  ref={(el) => { imageRefs.current[idx] = el; }}
                   className="w-full h-full object-cover cursor-pointer"
                   onClick={() => {
                     setCurrentImageIndex(index);
                     cycleMarking(idx);
                   }}
-                  src={img.fullPath}
+                  src={isPaused && pausedFrames[idx] ? pausedFrames[idx] : img.fullPath}
                   alt={`Image ${idx + 1} - ${img.fileName}`}
                 />
               </div>
@@ -857,7 +1267,17 @@ export default function ImageGallery() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
-            Select Label (L)
+            Select Label (.)
+          </button>
+          
+          <button
+            onClick={openCommentDialog}
+            className="px-3 py-1.5 bg-yellow-500 text-white text-sm font-medium rounded-md hover:bg-yellow-600 transition-all duration-200 shadow-sm flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+            Comment (,)
           </button>
         </div>
 
@@ -955,6 +1375,59 @@ export default function ImageGallery() {
         </div>
       )}
 
+      {/* Comment Dialog */}
+      {showCommentDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowCommentDialog(false);
+            setCurrentComment("");
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-xl p-4 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4 text-slate-800">
+              {imageComments[filteredImages[(currentPage - 1) * itemsPerPage + currentImageIndex]?.idx] 
+                ? "Edit Comment" 
+                : "Add Comment"}
+            </h3>
+            <textarea
+              ref={commentInputRef}
+              value={currentComment}
+              onChange={(e) => setCurrentComment(e.target.value)}
+              placeholder="Enter your comment here..."
+              className="w-full h-32 px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  saveComment();
+                }
+              }}
+            />
+            <div className="text-xs text-slate-500 mt-1 mb-3">
+              Press Ctrl+Enter to save
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={saveComment}
+                className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors font-medium"
+              >
+                Save Comment
+              </button>
+              <button
+                onClick={() => {
+                  setShowCommentDialog(false);
+                  setCurrentComment("");
+                }}
+                className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 transition-colors font-medium"
+              >
+                Cancel (ESC)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Zoom Overlay */}
       {zoomedImage && (
         <div
@@ -966,9 +1439,15 @@ export default function ImageGallery() {
               {settings.metadata.columns.some(col => col.name.toLowerCase() === "label" && col.enabled) && (
                 <p>
                   <strong>Label:</strong>{" "}
-                  {imageMarks[
-                    imagePaths.findIndex((item) => item.fullPath === zoomedImage)
-                  ]?.name || "No label"}
+                  {imageMarks[zoomedImageIndex]?.name || "No label"}
+                </p>
+              )}
+              
+              {/* Show comment in zoom view */}
+              {imageComments[zoomedImageIndex] && (
+                <p>
+                  <strong>Comment:</strong>{" "}
+                  {imageComments[zoomedImageIndex]}
                 </p>
               )}
               
@@ -983,10 +1462,41 @@ export default function ImageGallery() {
                   </p>
                 ) : null;
               })}
+              
+              {/* GIF controls in zoom view */}
+              {isGifFile(zoomedImageItem.fileName) && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleGifPause(zoomedImageIndex);
+                    }}
+                    className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
+                      pausedGifs.has(zoomedImageIndex)
+                        ? 'bg-green-500 hover:bg-green-600'
+                        : 'bg-orange-500 hover:bg-orange-600'
+                    }`}
+                  >
+                    {pausedGifs.has(zoomedImageIndex) ? (
+                      <span className="flex items-center gap-2">
+                        <FaPlay className="w-4 h-4" /> Play GIF
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <FaPause className="w-4 h-4" /> Pause GIF
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <img
-            src={zoomedImage}
+            src={
+              pausedGifs.has(zoomedImageIndex) && pausedFrames[zoomedImageIndex]
+                ? pausedFrames[zoomedImageIndex]
+                : zoomedImage
+            }
             alt="Zoomed"
             style={{ maxWidth: "67vw", maxHeight: "67vh" }}
             onClick={(e) => e.stopPropagation()}
